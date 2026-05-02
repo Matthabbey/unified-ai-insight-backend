@@ -25,6 +25,13 @@ class ResearcherAgent:
     Atlas simply doesn't have enough information to answer a question.
     """
 
+    SYSTEM_PROMPT = """You are Iroko AI, the Researcher agent. Your job is to find the most
+relevant documents from MTN Nigeria's indexed estate for any query. Execute hybrid search
+(lexical + vector) against Azure AI Search. Return top-k chunks with relevance scores and
+source metadata. Every chunk you return must have a document ID and section reference.
+If confidence is below threshold, flag for Watchdog review. You do not generate answers —
+you retrieve evidence."""
+
     @kernel_function(
         description="""Search across all MTN enterprise documents for information
         relevant to a query. Use this to find facts, contracts, reports, policies,
@@ -220,47 +227,137 @@ class ResearcherAgent:
         mock_results = [
             {
                 "document_id": "doc_001",
-                "title": "MTN Nigeria Q1 2026 Network Performance Report",
+                "title": "Ikeja Cluster RCA — Power Outage Q1 2026",
                 "department": "Network Operations",
                 "doc_type": "report",
                 "excerpt": (
-                    "Lagos Zone 7 experienced elevated customer complaints in Q1 2026, "
-                    "with 847 tickets logged between March 1-31. Tower 4471 in Ikeja "
-                    "recorded intermittent failures on March 15, 18, and 22, affecting "
-                    "approximately 12,000 subscribers during peak hours (18:00-21:00)."
+                    "Incident Reference: INC-2026-IKJ-0147. On 14 February 2026 at 02:14 WAT, "
+                    "a utility power failure on the AES-owned feeder supplying the Ikeja base "
+                    "station cluster caused a full outage across 6 sites (IKJ-001 to IKJ-006). "
+                    "Tower 4471 is the anchor site. Duration: 4.2 hours (02:14–06:23 WAT). "
+                    "IHS Nigeria tower lease reference: IHS/MTN/IKJ/2024-001. "
+                    "Enterprise customer SLA exposure: NGN 2.1M."
                 ),
-                "section_heading": "NETWORK INCIDENTS",
-                "page_number": 4,
-                "relevance_score": 0.94,
+                "section_heading": "1. INCIDENT SUMMARY",
+                "page_number": 1,
+                "relevance_score": 0.96,
             },
             {
                 "document_id": "doc_002",
-                "title": "Vendor Contract — TowerCo Nigeria Infrastructure Agreement",
+                "title": "TowerCo Tower Lease Agreement — IHS Nigeria",
                 "department": "Procurement",
                 "doc_type": "contract",
                 "excerpt": (
-                    "Agreement term: January 2024 to December 2026. Renewal notice required "
-                    "90 days before expiry. Current monthly fee: NGN 45,000,000. SLA: 99.5% "
-                    "uptime guarantee. Penalty clause: 2% fee reduction per 0.1% below SLA."
+                    "Contract Reference: IHS/MTN/IKJ/2024-001. Parties: IHS Nigeria Limited "
+                    "and MTN Nigeria Communications Plc. Commencement Date: 1 July 2024. "
+                    "Expiry Date: 30 June 2026. Monthly Lease Fee: NGN 28,000,000. "
+                    "Uptime SLA: 99.5%. Penalty: 2% fee reduction per 0.1% below SLA threshold. "
+                    "Renewal Notice: 90 days prior to expiry date."
                 ),
-                "section_heading": "CONTRACT TERMS",
-                "page_number": 2,
-                "relevance_score": 0.88,
+                "section_heading": "3. CONTRACT TERMS AND CONDITIONS",
+                "page_number": 3,
+                "relevance_score": 0.93,
             },
             {
                 "document_id": "doc_003",
-                "title": "Customer Complaint Analysis — Lagos Region April 2026",
+                "title": "Customer Complaints — MoMo Deductions Q1 2026",
                 "department": "Customer Experience",
                 "doc_type": "complaint",
                 "excerpt": (
-                    "Total complaints received: 1,247. Top complaint categories: "
-                    "slow data speeds (43%), dropped calls (28%), billing issues (18%), "
-                    "other (11%). Geographic concentration: Ikeja (34%), Victoria Island (22%), "
-                    "Lekki (19%). Most affected hours: 6pm-9pm weekdays."
+                    "Report Period: January–March 2026. Total complaints received: 2,847. "
+                    "Total disputed transaction value: NGN 45,000,000. "
+                    "Top complaint category: Unauthorised MoMo wallet deductions (61%). "
+                    "Overall resolution rate: 73% (NGN 32.8M refunded). "
+                    "Highest volume region: Lagos (1,143 complaints, 40.1% of total). "
+                    "Root cause: transaction retry duplicates during network reconnection."
                 ),
-                "section_heading": "COMPLAINT SUMMARY",
-                "page_number": 1,
+                "section_heading": "2. COMPLAINT ANALYSIS SUMMARY",
+                "page_number": 2,
                 "relevance_score": 0.91,
+            },
+            {
+                "document_id": "doc_004",
+                "title": "NCC QoS Quarterly Return — Q4 2025",
+                "department": "Legal/Regulatory",
+                "doc_type": "policy",
+                "excerpt": (
+                    "Submission Reference: MTN-NCC-QOS-Q4-2025. Reporting Period: "
+                    "October–December 2025. Network Availability: 99.1% (benchmark: 99.0% — COMPLIANT). "
+                    "Call Setup Success Rate: 97.3% (benchmark: 95.0% — COMPLIANT). "
+                    "Section 7.3: Data records supporting this return must be retained for a "
+                    "minimum of 7 (seven) years from the submission date, per NCC Regulation 2023."
+                ),
+                "section_heading": "7. DATA RETENTION AND COMPLIANCE",
+                "page_number": 8,
+                "relevance_score": 0.89,
+            },
+            {
+                "document_id": "doc_005",
+                "title": "MTN Nigeria NDPA Article 24 Processing Record",
+                "department": "Legal/Regulatory",
+                "doc_type": "policy",
+                "excerpt": (
+                    "Document Reference: MTN-NDPA-ART24-2026-001. Prepared by: Data Protection Office. "
+                    "Processing Purpose: Subscriber billing, service delivery, fraud prevention. "
+                    "Data Categories: Identity, financial, location, usage. "
+                    "Retention Period: 5 years (under review — NCC 7-year requirement pending). "
+                    "Cross-border transfers: South Africa (MTN Group), AWS Ireland. "
+                    "Safeguards: Standard Contractual Clauses — DPO sign-off PENDING. "
+                    "DPO Contact: dpo@mtn.com.ng."
+                ),
+                "section_heading": "4. CROSS-BORDER DATA TRANSFERS",
+                "page_number": 5,
+                "relevance_score": 0.87,
+            },
+            {
+                "document_id": "doc_006",
+                "title": "Ericsson RAN Maintenance SLA — 2026",
+                "department": "Procurement",
+                "doc_type": "contract",
+                "excerpt": (
+                    "Contract Reference: ERIC/MTN/RAN/2026-001. Vendor: Ericsson Nigeria Limited. "
+                    "Scope: Corrective and preventive maintenance for 847 base stations nationwide. "
+                    "Monthly Fee: NGN 15,000,000. Response SLA: 4 hours for critical faults. "
+                    "Parts Availability: 95% of critical spares held in Lagos depot. "
+                    "Contract Expiry: 31 December 2026."
+                ),
+                "section_heading": "2. SCOPE OF SERVICES",
+                "page_number": 2,
+                "relevance_score": 0.92,
+            },
+            {
+                "document_id": "doc_007",
+                "title": "Kano-Kaduna Fibre Route BoQ",
+                "department": "Network Operations",
+                "doc_type": "report",
+                "excerpt": (
+                    "Project Reference: MTN-FIBRE-KNO-KAD-2025-007. Route: Kano to Kaduna. "
+                    "Total Route Length: 287 km. POP Sites: 12. "
+                    "Total Project Value: NGN 4,200,000,000. "
+                    "Main Contractor: Julius Berger Nigeria Plc. "
+                    "Target Completion: Q3 2026 (30 September 2026). "
+                    "Current Status: Civil works 33% complete; RoW clearances pending (3 sections)."
+                ),
+                "section_heading": "1. PROJECT OVERVIEW",
+                "page_number": 1,
+                "relevance_score": 0.85,
+            },
+            {
+                "document_id": "doc_008",
+                "title": "Enterprise Customer SLA Register — EBU",
+                "department": "Enterprise Business",
+                "doc_type": "contract",
+                "excerpt": (
+                    "Document Reference: MTN-EBU-SLA-REG-2026. Total Enterprise Customers: 47. "
+                    "Total Annual Contract Value: NGN 890,000,000. "
+                    "Tier 1 Uptime SLA: 99.9%. SLA Credit Formula: 10% of monthly contract "
+                    "value per hour of downtime below contracted uptime. "
+                    "Top Customers: Zenith Bank (NGN 95M/yr), GTBank (NGN 82M/yr), "
+                    "NNPC (NGN 78M/yr), Dangote Group (NGN 65M/yr)."
+                ),
+                "section_heading": "3. SLA TERMS AND CREDIT SCHEDULE",
+                "page_number": 4,
+                "relevance_score": 0.94,
             },
         ]
         return json.dumps({
@@ -272,11 +369,13 @@ class ResearcherAgent:
 
     def _mock_document_list(self) -> str:
         docs = [
-            {"id": "doc_001", "title": "Q1 2026 Network Performance Report", "department": "Network Operations", "type": "report"},
-            {"id": "doc_002", "title": "TowerCo Vendor Contract", "department": "Procurement", "type": "contract"},
-            {"id": "doc_003", "title": "Customer Complaint Analysis April 2026", "department": "Customer Experience", "type": "complaint"},
-            {"id": "doc_004", "title": "NCC Regulatory Compliance Framework 2026", "department": "Legal", "type": "policy"},
-            {"id": "doc_005", "title": "MTN Data Retention Policy v3.2", "department": "Legal", "type": "policy"},
-            {"id": "doc_006", "title": "Tower Maintenance Log — Lagos March 2026", "department": "Network Operations", "type": "maintenance"},
+            {"id": "doc_001", "title": "Ikeja Cluster RCA — Power Outage Q1 2026", "department": "Network Operations", "type": "report"},
+            {"id": "doc_002", "title": "TowerCo Tower Lease Agreement — IHS Nigeria", "department": "Procurement", "type": "contract"},
+            {"id": "doc_003", "title": "Customer Complaints — MoMo Deductions Q1 2026", "department": "Customer Experience", "type": "complaint"},
+            {"id": "doc_004", "title": "NCC QoS Quarterly Return — Q4 2025", "department": "Legal/Regulatory", "type": "policy"},
+            {"id": "doc_005", "title": "MTN Nigeria NDPA Article 24 Processing Record", "department": "Legal/Regulatory", "type": "policy"},
+            {"id": "doc_006", "title": "Ericsson RAN Maintenance SLA — 2026", "department": "Procurement", "type": "contract"},
+            {"id": "doc_007", "title": "Kano-Kaduna Fibre Route BoQ", "department": "Network Operations", "type": "report"},
+            {"id": "doc_008", "title": "Enterprise Customer SLA Register — EBU", "department": "Enterprise Business", "type": "contract"},
         ]
         return json.dumps({"documents": docs, "total": len(docs)})

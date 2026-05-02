@@ -142,6 +142,28 @@ async def upload_document(
     return document
 
 
+@router.post("/upload", response_model=DocumentResponse)
+async def upload_document_alias(
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(None),
+    department: Optional[str] = Form(None),
+    doc_type: Optional[str] = Form(None),
+    tags: Optional[str] = Form("[]"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Alias for POST /api/documents — same handler, alternate path."""
+    return await upload_document(
+        file=file,
+        title=title,
+        department=department,
+        doc_type=doc_type,
+        tags=tags,
+        current_user=current_user,
+        db=db,
+    )
+
+
 @router.get("/{document_id}", response_model=DocumentResponse)
 async def get_document(
     document_id: str,

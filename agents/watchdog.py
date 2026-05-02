@@ -14,11 +14,35 @@ logger = logging.getLogger(__name__)
 
 class WatchdogAgent:
     """
-    The Watchdog runs silently in the background, watching for things 
-    that need attention. It checks for contract expirations, complaint 
-    spikes, policy conflicts, and regulatory deadlines — then surfaces 
+    The Watchdog runs silently in the background, watching for things
+    that need attention. It checks for contract expirations, complaint
+    spikes, policy conflicts, and regulatory deadlines — then surfaces
     them as alerts in the dashboard.
     """
+
+    SYSTEM_PROMPT = """You are Iroko AI, the Watchdog. Your job is to evaluate whether
+retrieved context is sufficient to ground a factual answer. Compute coverage score across
+retrieved chunks. If coverage is below 0.7 for any claim, emit a structured gap notice.
+Do NOT forward low-confidence queries to Scribe or Strategist — emit the gap instead.
+Nigerian regulatory and compliance queries require coverage above 0.85. You are the
+hallucination firewall."""
+
+    CONFIDENCE_THRESHOLD_GENERAL = 0.7
+    CONFIDENCE_THRESHOLD_COMPLIANCE = 0.85
+
+    def check_confidence(self, confidence: float, is_compliance: bool = False) -> dict:
+        """Evaluate retrieval confidence against Iroko thresholds."""
+        threshold = self.CONFIDENCE_THRESHOLD_COMPLIANCE if is_compliance else self.CONFIDENCE_THRESHOLD_GENERAL
+        has_gap = confidence < threshold
+        return {
+            "confidence": confidence,
+            "threshold": threshold,
+            "knowledge_gap": has_gap,
+            "message": (
+                f"Coverage {confidence:.2f} is below {'compliance' if is_compliance else 'general'} "
+                f"threshold {threshold}. Gap flagged — do not forward to Scribe."
+            ) if has_gap else f"Coverage {confidence:.2f} meets threshold {threshold}.",
+        }
 
     @kernel_function(
         description="""Run all proactive monitoring checks and return a list of alerts.
@@ -77,48 +101,53 @@ class WatchdogAgent:
     ) -> str:
         # In production: queries Azure Search for documents where
         # doc_type=contract and expiry_date < now + days_ahead
-        # For demo: returns realistic MTN contracts
+        # For demo: returns Iroko seed corpus contracts
         alerts = [
             {
                 "alert_type": "contract_expiry",
                 "severity": "critical",
-                "title": "TowerCo Infrastructure Contract Expiring in 14 Days",
+                "title": "IHS Nigeria Tower Lease Expiring — 90-Day Renewal Window Open",
                 "summary": (
-                    "The TowerCo Nigeria infrastructure agreement (₦45M/month) expires on "
-                    "May 15, 2026. Renewal notice was required 90 days ago. Immediate action needed."
+                    "The IHS Nigeria tower lease agreement (IHS/MTN/IKJ/2024-001) for the Ikeja "
+                    "cluster expires June 30, 2026. The 90-day renewal notice window is now open. "
+                    "Failure to serve notice will forfeit renewal rights. Monthly value: NGN 28M."
                 ),
                 "metadata": {
-                    "contract_title": "TowerCo Nigeria Infrastructure Agreement",
-                    "expiry_date": "2026-05-15",
-                    "monthly_value": 45000000,
-                    "days_remaining": 14,
+                    "contract_title": "TowerCo Tower Lease Agreement — IHS Nigeria",
+                    "contract_reference": "IHS/MTN/IKJ/2024-001",
+                    "expiry_date": "2026-06-30",
+                    "monthly_value": 28000000,
+                    "days_remaining": 59,
+                    "renewal_notice_days": 90,
                     "document_id": "doc_002",
                 },
                 "suggested_actions": [
-                    "Contact TowerCo Nigeria procurement team immediately",
-                    "Review current SLA performance before negotiating renewal terms",
-                    "Prepare renewal or termination notice this week",
-                    "Loop in legal team for contract review",
+                    "Serve 90-day renewal notice to IHS Nigeria immediately",
+                    "Review IHS Nigeria SLA performance — uptime breach (99.42%) on Ikeja cluster",
+                    "Engage legal team to negotiate revised SLA terms before renewal",
+                    "Confirm Ikeja cluster SLA credit claim is filed before renewal",
                 ],
             },
             {
                 "alert_type": "contract_expiry",
                 "severity": "warning",
-                "title": "Ericsson Maintenance Agreement Expiring in 45 Days",
+                "title": "Ericsson RAN Maintenance SLA Expiring December 31 2026",
                 "summary": (
-                    "The Ericsson equipment maintenance contract expires June 16, 2026. "
-                    "Begin renewal discussions to avoid service gap."
+                    "The Ericsson RAN Maintenance SLA (ERIC/MTN/RAN/2026-001) covering 847 base "
+                    "stations expires December 31, 2026. Begin renewal discussions in Q3 2026. "
+                    "Monthly value: NGN 15M."
                 ),
                 "metadata": {
-                    "contract_title": "Ericsson Equipment Maintenance SLA",
-                    "expiry_date": "2026-06-16",
-                    "monthly_value": 12000000,
-                    "days_remaining": 45,
-                    "document_id": "doc_007",
+                    "contract_title": "Ericsson RAN Maintenance SLA — 2026",
+                    "contract_reference": "ERIC/MTN/RAN/2026-001",
+                    "expiry_date": "2026-12-31",
+                    "monthly_value": 15000000,
+                    "days_remaining": 243,
+                    "document_id": "doc_006",
                 },
                 "suggested_actions": [
-                    "Schedule renewal meeting with Ericsson account manager",
-                    "Review equipment maintenance history before renewal",
+                    "Schedule Q3 2026 renewal kick-off with Ericsson account manager",
+                    "Review response SLA breach from Ikeja cluster incident before renewal",
                 ],
             },
         ]
@@ -135,32 +164,33 @@ class WatchdogAgent:
         threshold_pct: Annotated[float, "Percentage increase considered a spike"] = 40.0,
     ) -> str:
         # In production: queries complaint database and computes rolling average
-        # For demo: returns a live-looking spike alert
+        # For demo: returns Iroko-specific Ikeja cluster complaint spike
         alerts = [
             {
                 "alert_type": "complaint_spike",
                 "severity": "critical",
-                "title": "Customer Complaint Spike — Lagos Zone 7 (+187%)",
+                "title": "Ikeja Cluster MoMo Complaint Spike (+187%)",
                 "summary": (
-                    "Customer complaints in Lagos Zone 7 have increased 187% in the last 24 hours "
-                    "(47 tickets vs daily average of 16). Most affected area: Ikeja. "
-                    "Peak time: 6pm-9pm. Primary complaint: slow data speeds."
+                    "MoMo wallet deduction complaints linked to the Ikeja cluster power outage "
+                    "have spiked 187% in Q1 2026 (2,847 tickets; NGN 45M disputed value). "
+                    "Lagos accounts for 40% of complaints. Root cause: transaction retry "
+                    "duplicates during post-outage network reconnection."
                 ),
                 "metadata": {
-                    "region": "Lagos Zone 7",
-                    "current_24h": 47,
-                    "historical_daily_avg": 16,
+                    "region": "Lagos (Ikeja cluster)",
+                    "total_complaints_q1": 2847,
+                    "disputed_value_ngn": 45000000,
                     "increase_pct": 187,
-                    "top_complaint": "slow data speeds",
-                    "peak_hours": "18:00-21:00",
-                    "affected_area": "Ikeja",
+                    "top_complaint": "MoMo unauthorised deductions",
+                    "resolution_rate_pct": 73,
+                    "document_id": "doc_003",
                 },
                 "suggested_actions": [
-                    "Investigate Tower 4471 in Ikeja — known intermittent failure history",
-                    "Check network capacity utilisation for Lagos Zone 7",
-                    "Cross-reference with competitor promotions driving traffic shifts",
-                    "Prepare customer apology communication",
-                    "Escalate to Network Operations for emergency review",
+                    "Expedite resolution of 769 open MoMo deduction complaints",
+                    "Patch MoMo platform idempotency window to cover 6-hour reconnection gaps",
+                    "Proactively notify and refund affected Ikeja cluster subscribers",
+                    "File formal incident linkage between Ikeja outage and MoMo complaint spike",
+                    "Escalate to Customer Experience VP for executive visibility",
                 ],
             }
         ]
@@ -215,24 +245,51 @@ class WatchdogAgent:
             {
                 "alert_type": "regulatory_deadline",
                 "severity": "warning",
-                "title": "NCC QoS Report Due in 12 Days",
+                "title": "NCC QoS Quarterly Return Due in 12 Days",
                 "summary": (
-                    "The quarterly Quality of Service report to NCC is due May 13, 2026. "
-                    "Previous submission: February 2026. Report requires network uptime, "
-                    "complaint resolution rates, and coverage statistics."
+                    "The NCC Quality of Service quarterly return (Q4 2025) is due May 13, 2026. "
+                    "Network availability (99.1%) and call setup success (97.3%) are compliant. "
+                    "Data throughput verification against Section 7.3 benchmarks is outstanding."
                 ),
                 "metadata": {
-                    "filing": "NCC QoS Quarterly Report",
+                    "filing": "NCC QoS Quarterly Return — Q4 2025",
+                    "reference": "MTN-NCC-QOS-Q4-2025",
                     "due_date": "2026-05-13",
                     "days_remaining": 12,
                     "last_submitted": "2026-02-13",
+                    "document_id": "doc_004",
                 },
                 "suggested_actions": [
-                    "Begin compiling Q1 2026 network performance data",
-                    "Request complaint resolution statistics from Customer Experience",
-                    "Assign report owner and set internal deadline for May 10",
+                    "Verify data throughput metrics against NCC Section 7.3 benchmarks",
+                    "Request Q1 2026 complaint resolution statistics from Customer Experience",
+                    "Assign report owner and set internal sign-off deadline for May 10",
                 ],
-            }
+            },
+            {
+                "alert_type": "compliance_gap",
+                "severity": "warning",
+                "title": "NDPA Article 24 Processing Record Incomplete — DPO Action Required",
+                "summary": (
+                    "The MTN Nigeria NDPA Article 24 data processing record "
+                    "(MTN-NDPA-ART24-2026-001) has an outstanding gap: cross-border transfer "
+                    "safeguards (Standard Contractual Clauses for South Africa and AWS Ireland) "
+                    "require DPO sign-off. The DPIA reference must also be linked before the "
+                    "next NDPA compliance review."
+                ),
+                "metadata": {
+                    "document_reference": "MTN-NDPA-ART24-2026-001",
+                    "gap_section": "Section 4 — Cross-Border Data Transfers",
+                    "required_action": "DPO sign-off on Standard Contractual Clauses",
+                    "dpo_contact": "dpo@mtn.com.ng",
+                    "document_id": "doc_005",
+                },
+                "suggested_actions": [
+                    "DPO to review and sign off on cross-border transfer safeguards",
+                    "Link DPIA reference to NDPA Article 24 processing record",
+                    "Align data retention period with NCC 7-year requirement",
+                    "Schedule NDPA compliance review before next regulatory audit",
+                ],
+            },
         ]
 
         return json.dumps({"check": "regulatory_deadlines", "alerts": alerts})
