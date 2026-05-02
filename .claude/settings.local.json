@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\HomePC\\\\Desktop\\\\atlas\\\\ai-engineering-hub\" -Recurse -File | Where-Object { $_.Extension -in \".py\",\".txt\",\".md\",\".env\" } | Select-Object FullName | Format-Table -AutoSize)",
+      "PowerShell(New-Item *)"
+    ]
+  }
+}
